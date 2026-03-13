@@ -1,5 +1,6 @@
 use crate::certificate_authority::{CACHE_TTL, CertificateAuthority, NOT_BEFORE_OFFSET, TTL_SECS};
 use http::uri::Authority;
+use hyper::Request;
 use moka::future::Cache;
 use openssl::{
     asn1::{Asn1Integer, Asn1Time},
@@ -124,7 +125,7 @@ impl OpensslAuthority {
 }
 
 impl CertificateAuthority for OpensslAuthority {
-    async fn gen_server_config(&self, authority: &Authority) -> Arc<ServerConfig> {
+    async fn gen_server_config(&self, authority: &Authority, _connect_request: &Request<()>) -> Arc<ServerConfig> {
         if let Some(server_cfg) = self.cache.get(authority).await {
             debug!("Using cached server config");
             return server_cfg;

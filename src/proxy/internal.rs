@@ -181,9 +181,22 @@ where
 
                                     return;
                                 } else if buffer[..2] == *b"\x16\x03" {
+                                    let connect_req = Request::builder()
+                                        .method(Method::CONNECT)
+                                        .uri(req.uri().clone())
+                                        .body(())
+                                        .expect("Failed to build CONNECT request for CA");
+                                    // Copy headers from original CONNECT request
+                                    let connect_req = {
+                                        let (mut parts, body) = connect_req.into_parts();
+                                        for (key, value) in req.headers() {
+                                            parts.headers.insert(key.clone(), value.clone());
+                                        }
+                                        Request::from_parts(parts, body)
+                                    };
                                     let server_config = self
                                         .ca
-                                        .gen_server_config(&authority)
+                                        .gen_server_config(&authority, &connect_req)
                                         .instrument(info_span!("gen_server_config"))
                                         .await;
 
@@ -410,7 +423,7 @@ mod tests {
     struct CA;
 
     impl CertificateAuthority for CA {
-        async fn gen_server_config(&self, _authority: &Authority) -> Arc<ServerConfig> {
+        async fn gen_server_config(&self, _authority: &Authority, _connect_request: &Request<()>) -> Arc<ServerConfig> {
             unimplemented!();
         }
     }

@@ -4,6 +4,7 @@ mod openssl_authority;
 mod rcgen_authority;
 
 use http::uri::Authority;
+use hyper::Request;
 use std::sync::Arc;
 use tokio_rustls::rustls::ServerConfig;
 
@@ -22,8 +23,13 @@ const NOT_BEFORE_OFFSET: i64 = 60;
 /// or to ignore certificate errors.
 pub trait CertificateAuthority: Send + Sync + 'static {
     /// Generate ServerConfig for use with rustls.
+    ///
+    /// The `connect_request` parameter provides the original CONNECT request,
+    /// allowing implementations to select different CA certificates based on
+    /// request headers (e.g., `Proxy-Authorization`).
     fn gen_server_config(
         &self,
         authority: &Authority,
+        connect_request: &Request<()>,
     ) -> impl Future<Output = Arc<ServerConfig>> + Send;
 }

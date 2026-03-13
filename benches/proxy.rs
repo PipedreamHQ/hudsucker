@@ -83,8 +83,13 @@ pub async fn start_https_server(
 ) -> Result<(SocketAddr, Sender<()>), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
     let addr = listener.local_addr()?;
+    let dummy_req = hyper::Request::builder()
+        .method(hyper::Method::CONNECT)
+        .uri("localhost:443")
+        .body(())
+        .unwrap();
     let acceptor: tokio_rustls::TlsAcceptor = ca
-        .gen_server_config(&"localhost".parse().unwrap())
+        .gen_server_config(&"localhost".parse().unwrap(), &dummy_req)
         .await
         .into();
     let (tx, rx) = tokio::sync::oneshot::channel();

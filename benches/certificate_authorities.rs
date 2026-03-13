@@ -1,5 +1,6 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use http::uri::Authority;
+use hyper::Request;
 use hudsucker::{
     certificate_authority::{CertificateAuthority, OpensslAuthority, RcgenAuthority},
     openssl::{hash::MessageDigest, pkey::PKey, x509::X509},
@@ -39,20 +40,29 @@ fn build_openssl_ca(cache_size: u64) -> OpensslAuthority {
     )
 }
 
+fn dummy_connect_req() -> Request<()> {
+    Request::builder()
+        .method(hyper::Method::CONNECT)
+        .uri("example.com:443")
+        .body(())
+        .unwrap()
+}
+
 fn compare_cas(c: &mut Criterion) {
     let rcgen_ca = build_rcgen_ca(0);
     let openssl_ca = build_openssl_ca(0);
     let authority = Authority::from_static("example.com");
+    let connect_req = dummy_connect_req();
     let runtime = runtime();
 
     let mut group = c.benchmark_group("cas");
     group.bench_function("rcgen", |b| {
         b.to_async(&runtime)
-            .iter(|| rcgen_ca.gen_server_config(black_box(&authority)))
+            .iter(|| rcgen_ca.gen_server_config(black_box(&authority), black_box(&connect_req)))
     });
     group.bench_function("openssl", |b| {
         b.to_async(&runtime)
-            .iter(|| openssl_ca.gen_server_config(black_box(&authority)))
+            .iter(|| openssl_ca.gen_server_config(black_box(&authority), black_box(&connect_req)))
     });
     group.finish();
 }
@@ -61,16 +71,17 @@ fn rcgen_ca(c: &mut Criterion) {
     let cache_ca = build_rcgen_ca(1000);
     let no_cache_ca = build_rcgen_ca(0);
     let authority = Authority::from_static("example.com");
+    let connect_req = dummy_connect_req();
     let runtime = runtime();
 
     let mut group = c.benchmark_group("rcgen ca");
     group.bench_function("with cache", |b| {
         b.to_async(&runtime)
-            .iter(|| cache_ca.gen_server_config(black_box(&authority)))
+            .iter(|| cache_ca.gen_server_config(black_box(&authority), black_box(&connect_req)))
     });
     group.bench_function("without cache", |b| {
         b.to_async(&runtime)
-            .iter(|| no_cache_ca.gen_server_config(black_box(&authority)))
+            .iter(|| no_cache_ca.gen_server_config(black_box(&authority), black_box(&connect_req)))
     });
     group.finish();
 }
@@ -79,16 +90,17 @@ fn openssl_ca(c: &mut Criterion) {
     let cache_ca = build_openssl_ca(1000);
     let no_cache_ca = build_openssl_ca(0);
     let authority = Authority::from_static("example.com");
+    let connect_req = dummy_connect_req();
     let runtime = runtime();
 
     let mut group = c.benchmark_group("openssl ca");
     group.bench_function("with cache", |b| {
         b.to_async(&runtime)
-            .iter(|| cache_ca.gen_server_config(black_box(&authority)))
+            .iter(|| cache_ca.gen_server_config(black_box(&authority), black_box(&connect_req)))
     });
     group.bench_function("without cache", |b| {
         b.to_async(&runtime)
-            .iter(|| no_cache_ca.gen_server_config(black_box(&authority)))
+            .iter(|| no_cache_ca.gen_server_config(black_box(&authority), black_box(&connect_req)))
     });
     group.finish();
 }
